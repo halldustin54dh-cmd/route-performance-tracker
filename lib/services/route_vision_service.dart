@@ -7,12 +7,15 @@ import '../models/route_vision_analysis.dart';
 class RouteVisionService {
   const RouteVisionService();
 
-  static const _baseUrl = String.fromEnvironment('ROUTE_VISION_BASE_URL');
+  static const _baseUrl = String.fromEnvironment(
+    'ROUTE_VISION_BASE_URL',
+    defaultValue: 'https://route-performance-tracker-vision.vercel.app',
+  );
   static const _clientToken = String.fromEnvironment('ROUTE_VISION_CLIENT_TOKEN');
   static const _maxImages = 3;
   static const _targetBytesPerImage = 700 * 1024;
 
-  bool get isConfigured => _baseUrl.isNotEmpty && _clientToken.isNotEmpty;
+  bool get isConfigured => _clientToken.isNotEmpty;
 
   Future<RouteVisionAnalysis> analyze({
     required List<String> imagePaths,
