@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: route-performance-tracker-vision
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ROUTE_VISION_CLIENT_TOKEN
+        sync: false
+      - key: OPENAI_VISION_MODEL
+        value: gpt-5.4-mini
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "12"
+      - key: TRUST_PROXY
+        value: "1"
