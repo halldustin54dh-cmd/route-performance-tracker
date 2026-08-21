@@ -12,7 +12,8 @@ class RouteVisionService {
     defaultValue: 'https://route-performance-tracker-vision.vercel.app',
   );
   static const _clientToken = String.fromEnvironment('ROUTE_VISION_CLIENT_TOKEN');
-  static const _maxImages = 3;
+  static const maxImagesPerAnalysis = 3;
+  static const freeMonthlyAnalyses = 3;
   static const _targetBytesPerImage = 700 * 1024;
 
   bool get isConfigured => _clientToken.isNotEmpty;
@@ -27,38 +28,25 @@ class RouteVisionService {
     if (imagePaths.isEmpty) throw ArgumentError('At least one image is required.');
 
     final images = <Map<String, String>>[];
-    for (final path in imagePaths.take(_maxImages)) {
+    for (final path in imagePaths.take(maxImagesPerAnalysis)) {
       final bytes = await _visionSizedJpeg(path);
-      images.add({
-        'mimeType': 'image/jpeg',
-        'base64': base64Encode(bytes),
-      });
+      images.add({'mimeType': 'image/jpeg', 'base64': base64Encode(bytes)});
     }
 
     final uri = Uri.parse('${_baseUrl.replaceAll(RegExp(r'/$'), '')}/api/route-vision');
-    final response = await http
-        .post(
-          uri,
-          headers: {
-            HttpHeaders.authorizationHeader: 'Bearer $_clientToken',
-            HttpHeaders.contentTypeHeader: 'application/json',
-          },
-          body: jsonEncode({'images': images, 'ocrText': ocrText}),
-        )
-        .timeout(const Duration(seconds: 45));
+    final response = await http.post(
+      uri,
+      headers: {
+        HttpHeaders.authorizationHeader: 'Bearer $_clientToken',
+        HttpHeaders.contentTypeHeader: 'application/json',
+      },
+      body: jsonEncode({'images': images, 'ocrText': ocrText}),
+    ).timeout(const Duration(seconds: 45));
 
-    if (response.statusCode == 503) {
-      throw StateError('Secure vision backend is online but has not been configured yet.');
-    }
-    if (response.statusCode == 401) {
-      throw StateError('Secure vision backend rejected this app build.');
-    }
-    if (response.statusCode == 429) {
-      throw StateError('Secure vision analysis is temporarily rate limited.');
-    }
-    if (response.statusCode != 200) {
-      throw StateError('Vision backend returned ${response.statusCode}.');
-    }
+    if (response.statusCode == 503) throw StateError('Secure vision is temporarily unavailable. Your route can still be entered manually.');
+    if (response.statusCode == 401) throw StateError('This app build could not authenticate with secure vision.');
+    if (response.statusCode == 429) throw StateError('Secure vision is temporarily rate limited. Try again shortly.');
+    if (response.statusCode != 200) throw StateError('Secure vision could not analyze these screenshots.');
 
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) throw const FormatException('Invalid vision response.');
