@@ -4,8 +4,14 @@ class AccountService {
   AccountService._();
   static final instance = AccountService._();
 
-  static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+  static const supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'https://iapncurupddfhlgvvxrn.supabase.co',
+  );
+  static const supabasePublishableKey = String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+    defaultValue: 'sb_publishable_0LN377mxvOoLRZC_UU_kkA_ijkMkyEw',
+  );
 
   bool _initialized = false;
 
