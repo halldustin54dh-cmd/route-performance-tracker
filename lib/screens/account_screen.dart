@@ -41,6 +41,17 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  Future<void> _magicLink() async {
+    try {
+      await _accounts.sendMagicLink(_email.text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Magic link sent.')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -82,17 +93,7 @@ class _AccountScreenState extends State<AccountScreen> {
           const SizedBox(height: 14),
           FilledButton(onPressed: _busy ? null : _submit, child: Text(_busy ? 'Please wait…' : (_create ? 'Create Account' : 'Sign In'))),
           TextButton(onPressed: _busy ? null : () => setState(() => _create = !_create), child: Text(_create ? 'Already have an account? Sign in' : 'Need an account? Create one')),
-          TextButton(
-            onPressed: _busy ? null : () async {
-              try {
-                await _accounts.sendMagicLink(_email.text);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Magic link sent.')));
-              } catch (error) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
-              }
-            },
-            child: const Text('Email me a sign-in link'),
-          ),
+          TextButton(onPressed: _busy ? null : _magicLink, child: const Text('Email me a sign-in link')),
         ],
         const SizedBox(height: 24),
         Card(
