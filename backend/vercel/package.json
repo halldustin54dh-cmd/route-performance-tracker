@@ -1,9 +1,11 @@
 {
-  "name": "route-performance-tracker-vision-vercel",
-  "version": "0.5.1",
+  "name": "route-performance-tracker-backend-vercel",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "dependencies": {
-    "openai": "^5.20.0"
+    "openai": "^5.20.0",
+    "@supabase/supabase-js": "^2.57.4",
+    "google-auth-library": "^10.3.0"
   }
 }
