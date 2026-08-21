@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../services/subscription_service.dart';
@@ -13,11 +14,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
   List<ProductDetails> _products = const [];
   bool _loading = true;
   String? _message;
+  StreamSubscription<String>? _messageSubscription;
 
   @override
   void initState() {
     super.initState();
+    _messageSubscription = SubscriptionService.instance.messages.listen((message) {
+      if (!mounted) return;
+      setState(() => _message = message);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    });
     _load();
+  }
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -27,15 +40,31 @@ class _PaywallScreenState extends State<PaywallScreen> {
     setState(() {
       _products = products;
       _loading = false;
-      if (products.isEmpty) _message = 'Subscription products are not available in this build/store account yet.';
+      if (products.isEmpty) {
+        _message = 'Subscription products are not available in this build/store account yet.';
+      }
     });
   }
 
   Future<void> _buy(ProductDetails product) async {
     try {
+      setState(() => _message = 'Opening the store…');
       await SubscriptionService.instance.buy(product);
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      if (!mounted) return;
+      setState(() => _message = '$error');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
+  }
+
+  Future<void> _restore() async {
+    try {
+      setState(() => _message = 'Checking previous purchases…');
+      await SubscriptionService.instance.restore();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _message = '$error');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
     }
   }
 
@@ -49,7 +78,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
         children: [
           const Icon(Icons.workspace_premium_outlined, size: 64),
           const SizedBox(height: 14),
-          Text('More route intelligence. Less manual work.', textAlign: TextAlign.center, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+          Text(
+            'More route intelligence. Less manual work.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 18),
           const _Feature(icon: Icons.auto_awesome_outlined, title: 'AI route screenshot analysis', body: 'Analyze route maps and route structure securely.'),
           const _Feature(icon: Icons.cloud_done_outlined, title: 'Cloud backup & sync', body: 'Keep route history backed up and available across devices.'),
@@ -62,22 +95,29 @@ class _PaywallScreenState extends State<PaywallScreen> {
             Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(_message ?? 'Subscriptions unavailable.')))
           else
             ..._products.map((product) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: FilledButton(
-                onPressed: () => _buy(product),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: Row(children: [
-                    Expanded(child: Text(product.title, style: const TextStyle(fontWeight: FontWeight.w700))),
-                    Text(product.price),
-                  ]),
-                ),
-              ),
-            )),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: FilledButton(
+                    onPressed: () => _buy(product),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Row(children: [
+                        Expanded(child: Text(product.title, style: const TextStyle(fontWeight: FontWeight.w700))),
+                        Text(product.price),
+                      ]),
+                    ),
+                  ),
+                )),
+          if (_message != null && _products.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(_message!, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+          ],
           const SizedBox(height: 8),
-          TextButton.icon(onPressed: SubscriptionService.instance.restore, icon: const Icon(Icons.restore), label: const Text('Restore Purchases')),
+          TextButton.icon(onPressed: _restore, icon: const Icon(Icons.restore), label: const Text('Restore Purchases')),
           const SizedBox(height: 12),
-          const Text('Purchases must be verified by the server before Pro access is granted. Store availability and prices come from Google Play or the App Store.', textAlign: TextAlign.center),
+          const Text(
+            'Purchases must be verified by the server before Pro access is granted. Store availability and prices come from Google Play or the App Store.',
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -92,11 +132,11 @@ class _Feature extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 10),
-    child: ListTile(
-      leading: Icon(icon),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(body),
-    ),
-  );
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          leading: Icon(icon),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(body),
+        ),
+      );
 }
