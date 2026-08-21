@@ -32,6 +32,7 @@ jobs:
           node --check backend/src/server.js
           node --check backend/vercel/api/health.js
           node --check backend/vercel/api/route-vision.js
+          node --check backend/vercel/api/verify-google-play.js
 
       - name: Run backend tests
         run: npm test --prefix backend
