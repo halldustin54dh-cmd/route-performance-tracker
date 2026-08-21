@@ -45,11 +45,8 @@ void main() {
       final earlyMae = earlyErrors.reduce((a, b) => a + b) / earlyErrors.length;
       final lateMae = lateErrors.reduce((a, b) => a + b) / lateErrors.length;
 
-      // This is intentionally a behavior benchmark rather than a claim that the
-      // current algorithm is already accurate enough for production. The real
-      // routes show that forecasts stabilize as more checkpoint data arrives.
       expect(lateMae, lessThan(earlyMae));
-      expect(lateMae, lessThan(60));
+      expect(lateMae, lessThan(55));
     });
 
     test('prints a checkpoint-by-checkpoint accuracy report for tuning', () {
@@ -90,9 +87,10 @@ void main() {
       // ignore: avoid_print
       print('\nOverall checkpoint MAE: ${overallMae.toStringAsFixed(1)} min');
 
-      // Keep this broad on purpose. This test primarily guarantees the report
-      // remains executable while we improve the forecasting model.
-      expect(overallMae, lessThan(120));
+      // The original unsmoothed forecast scored 78.3 minutes on this exact
+      // fixture set. Keep future changes below 70 unless the benchmark itself
+      // is deliberately revised with more verified routes.
+      expect(overallMae, lessThan(70));
     });
   });
 }
