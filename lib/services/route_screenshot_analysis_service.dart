@@ -38,9 +38,9 @@ class RouteScreenshotAnalysisService {
     }
 
     final foundFields = [stops, locations, packages, multi].where((value) => value != null).length;
-    final confidence = switch (kind) {
-      RouteScreenshotKind.pickSheet => (0.62 + foundFields * 0.08).clamp(0.0, 0.94),
-      RouteScreenshotKind.itinerary => (0.58 + foundFields * 0.07).clamp(0.0, 0.90),
+    final double confidence = switch (kind) {
+      RouteScreenshotKind.pickSheet => (0.62 + foundFields * 0.08).clamp(0.0, 0.94).toDouble(),
+      RouteScreenshotKind.itinerary => (0.58 + foundFields * 0.07).clamp(0.0, 0.90).toDouble(),
       RouteScreenshotKind.routeMap => 0.62,
       RouteScreenshotKind.unknown => foundFields > 1 ? 0.55 : 0.25,
     };
