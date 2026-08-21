@@ -194,9 +194,14 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text('${_date(route.date)} • ${route.startingStops} stops'),
         subtitle: Text('${route.routeType} • ${_duration(route)} • ${_pace(adjusted)} adjusted'),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => HistoryDetailScreen(route: route)),
-        ),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => HistoryDetailScreen(route: route, repository: widget.repository),
+            ),
+          );
+          await _reload();
+        },
       ),
     );
   }
