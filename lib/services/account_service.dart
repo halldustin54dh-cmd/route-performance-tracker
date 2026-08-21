@@ -5,16 +5,16 @@ class AccountService {
   static final instance = AccountService._();
 
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const supabasePublishableKey = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
 
   bool _initialized = false;
 
-  bool get isConfigured => supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+  bool get isConfigured => supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
   bool get isInitialized => _initialized;
 
   Future<void> initialize() async {
     if (!isConfigured || _initialized) return;
-    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    await Supabase.initialize(url: supabaseUrl, publishableKey: supabasePublishableKey);
     _initialized = true;
   }
 
