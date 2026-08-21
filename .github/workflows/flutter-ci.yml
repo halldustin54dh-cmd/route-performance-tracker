@@ -25,7 +25,12 @@ jobs:
         run: npm install --prefix backend
 
       - name: Validate backend syntax
-        run: node --check backend/src/server.js
+        run: |
+          node --check backend/src/app.js
+          node --check backend/src/server.js
+
+      - name: Run backend tests
+        run: npm test --prefix backend
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
