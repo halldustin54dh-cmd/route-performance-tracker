@@ -20,11 +20,18 @@ class EntitlementService {
       return UserEntitlement.free;
     }
 
+    final expiresAt = row['expires_at'] == null
+        ? null
+        : DateTime.tryParse(row['expires_at'] as String)?.toUtc();
+    if (expiresAt != null && !expiresAt.isAfter(DateTime.now().toUtc())) {
+      return UserEntitlement.free;
+    }
+
     return UserEntitlement(
       tier: EntitlementTier.pro,
       provider: row['provider'] as String?,
       productId: row['product_id'] as String?,
-      expiresAt: row['expires_at'] == null ? null : DateTime.tryParse(row['expires_at'] as String),
+      expiresAt: expiresAt,
     );
   }
 }
