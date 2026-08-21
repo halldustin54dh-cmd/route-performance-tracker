@@ -7,6 +7,7 @@ import '../services/route_report_service.dart';
 import '../services/route_repository.dart';
 import '../widgets/metric_tile.dart';
 import 'activity_editor_screen.dart';
+import 'evidence_manager_screen.dart';
 
 class HistoryDetailScreen extends StatefulWidget {
   const HistoryDetailScreen({
@@ -58,6 +59,15 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _openEvidenceManager() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EvidenceManagerScreen(route: route, repository: widget.repository),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final raw = _metrics.rawPace(route);
@@ -74,11 +84,13 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               if (value == 'copy') _copyReport();
               if (value == 'export') _exportReport();
               if (value == 'correct') _openCorrections();
+              if (value == 'evidence') _openEvidenceManager();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'copy', child: Text('Copy report')),
               PopupMenuItem(value: 'export', child: Text('Export report file')),
               PopupMenuItem(value: 'correct', child: Text('Correct checkpoints/events')),
+              PopupMenuItem(value: 'evidence', child: Text('Manage evidence')),
             ],
           ),
         ],
@@ -129,6 +141,12 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
             onPressed: _openCorrections,
             icon: const Icon(Icons.edit_note),
             label: const Text('Correct Route Activity'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _openEvidenceManager,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: const Text('Manage Evidence'),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
