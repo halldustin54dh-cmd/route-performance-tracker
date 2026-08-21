@@ -23,10 +23,10 @@ class RouteScreenshotAnalysisService {
     final normalized = text.replaceAll('\r', '\n');
     final lower = normalized.toLowerCase();
     final kind = _classify(lower);
-    final stops = _extractCount(normalized, const ['stops?', 'deliver(?:y|ies)']);
-    final locations = _extractCount(normalized, const ['locations?', 'delivery locations?']);
+    final stops = _extractCount(normalized, const ['stops?']);
+    final locations = _extractCount(normalized, const ['locations?', 'delivery[ ]+locations?']);
     final packages = _extractCount(normalized, const ['packages?', 'pkgs?']);
-    final multi = _extractCount(normalized, const ['multi[- ]?location stops?', 'grouped stops?', 'multi[- ]?stops?']);
+    final multi = _extractCount(normalized, const ['multi[- ]?location[ ]+stops?', 'grouped[ ]+stops?', 'multi[- ]?stops?']);
     final routeCode = _extractRouteCode(normalized);
     final notes = <String>[];
 
@@ -79,12 +79,20 @@ class RouteScreenshotAnalysisService {
   int _score(String text, List<String> needles) => needles.where(text.contains).length;
 
   int? _extractCount(String text, List<String> labels) {
-    for (final label in labels) {
-      final after = RegExp('(?:$label)\\s*[:#-]?\\s*(\\d{1,4})', caseSensitive: false).firstMatch(text);
-      if (after != null) return int.tryParse(after.group(1)!);
+    for (final line in text.split('\n')) {
+      for (final label in labels) {
+        final after = RegExp(
+          '\\b(?:$label)\\b[ \\t]*[:#-]?[ \\t]*(\\d{1,4})',
+          caseSensitive: false,
+        ).firstMatch(line);
+        if (after != null) return int.tryParse(after.group(1)!);
 
-      final before = RegExp('(\\d{1,4})\\s*(?:$label)', caseSensitive: false).firstMatch(text);
-      if (before != null) return int.tryParse(before.group(1)!);
+        final before = RegExp(
+          '\\b(\\d{1,4})[ \\t]*(?:$label)\\b',
+          caseSensitive: false,
+        ).firstMatch(line);
+        if (before != null) return int.tryParse(before.group(1)!);
+      }
     }
     return null;
   }
