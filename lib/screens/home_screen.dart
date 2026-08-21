@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _todayTab(context),
             _historyTab(context),
             AnalyticsScreen(routes: _history),
-            const AccountScreen(),
+            AccountScreen(repository: widget.repository),
           ],
         ),
       ),
