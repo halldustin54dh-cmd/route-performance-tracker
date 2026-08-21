@@ -3,9 +3,11 @@ import 'package:image_picker/image_picker.dart';
 import '../models/delivery_route.dart';
 import '../models/route_evidence.dart';
 import '../models/route_screenshot_analysis.dart';
+import '../models/route_vision_analysis.dart';
 import '../services/evidence_storage_service.dart';
 import '../services/route_repository.dart';
 import '../services/route_screenshot_analysis_service.dart';
+import '../services/route_vision_service.dart';
 import 'live_route_screen.dart';
 
 class StartRouteScreen extends StatefulWidget {
@@ -28,6 +30,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
   final _drive = TextEditingController();
   final _picker = ImagePicker();
   final _screenshotAnalysis = const RouteScreenshotAnalysisService();
+  final _vision = const RouteVisionService();
   final _evidenceStorage = const EvidenceStorageService();
 
   String _routeType = 'Mixed';
@@ -39,6 +42,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
   bool _showDifficulty = false;
   List<XFile> _importedScreenshots = const [];
   RouteScreenshotBatchAnalysis? _analysisResult;
+  RouteVisionAnalysis? _visionResult;
 
   @override
   void dispose() {
@@ -51,27 +55,46 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
   int _intOrZero(String value) => int.tryParse(value.trim()) ?? 0;
   double _doubleOrZero(String value) => double.tryParse(value.trim()) ?? 0;
 
-  void _applyAnalysis(RouteScreenshotBatchAnalysis analysis) {
+  void _applyAnalysis(RouteScreenshotBatchAnalysis analysis, RouteVisionAnalysis? vision) {
     if (analysis.stops != null) _stops.text = '${analysis.stops}';
     if (analysis.locations != null) _locations.text = '${analysis.locations}';
     if (analysis.packages != null) _packages.text = '${analysis.packages}';
     if (analysis.multiLocationStops != null) _multi.text = '${analysis.multiLocationStops}';
+    if (vision != null) {
+      _spread = vision.routeSpread.clamp(0, 5);
+      _access = vision.accessComplexity.clamp(0, 5);
+      if (vision.estimatedAverageDriveMinutes != null) {
+        _drive.text = vision.estimatedAverageDriveMinutes!.toStringAsFixed(1);
+      }
+      _routeType = _normalizeRouteType(vision.likelyRouteType);
+      _showDifficulty = true;
+    }
   }
 
-  Future<bool> _reviewAnalysis(RouteScreenshotBatchAnalysis analysis) async {
+  String _normalizeRouteType(String value) {
+    final lower = value.toLowerCase();
+    if (lower.contains('rural')) return 'Rural';
+    if (lower.contains('downtown') || lower.contains('urban')) return 'Downtown / Urban';
+    if (lower.contains('apartment')) return 'Apartment-heavy';
+    if (lower.contains('business')) return 'Business-heavy';
+    if (lower.contains('residential')) return 'Residential';
+    return 'Mixed';
+  }
+
+  Future<bool> _reviewAnalysis(RouteScreenshotBatchAnalysis analysis, RouteVisionAnalysis? vision) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Route screenshots analyzed'),
         content: SizedBox(
-          width: 520,
+          width: 560,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${analysis.items.length} image${analysis.items.length == 1 ? '' : 's'} analyzed on this device.'),
-                const SizedBox(height: 14),
+                Text('${analysis.items.length} image${analysis.items.length == 1 ? '' : 's'} analyzed with on-device OCR.'),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -82,11 +105,47 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
                     if (analysis.multiLocationStops != null) Chip(label: Text('${analysis.multiLocationStops} multi-location')),
                   ],
                 ),
-                if (!analysis.hasUsefulRouteData) ...[
+                if (vision != null) ...[
+                  const SizedBox(height: 18),
+                  Row(children: [
+                    const Icon(Icons.auto_awesome_outlined),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Secure map vision', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
+                  ]),
                   const SizedBox(height: 8),
-                  const Text('No route counts were extracted confidently. The images can still be saved with the route.'),
+                  Text(vision.summary.isEmpty ? 'Map geometry was analyzed by the secure backend.' : vision.summary),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Chip(label: Text('Spread ${vision.routeSpread}/5')),
+                      Chip(label: Text('Rurality ${vision.rurality}/5')),
+                      Chip(label: Text('Clustering ${vision.clustering}/5')),
+                      Chip(label: Text('Backtracking ${vision.backtrackingRisk}/5')),
+                      Chip(label: Text('Access ${vision.accessComplexity}/5')),
+                      Chip(label: Text('${(vision.confidence * 100).round()}% confidence')),
+                    ],
+                  ),
+                  if (vision.signals.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ...vision.signals.map((signal) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            const Text('• '),
+                            Expanded(child: Text(signal)),
+                          ]),
+                        )),
+                  ],
+                ] else ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    _vision.isConfigured
+                        ? 'Secure map vision was unavailable for this import. OCR results are still usable.'
+                        : 'This build has no secure vision backend configured, so only on-device OCR ran.',
+                  ),
                 ],
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 ...analysis.items.asMap().entries.map((entry) {
                   final item = entry.value;
                   final percent = (item.confidence * 100).round();
@@ -103,7 +162,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
                   );
                 }),
                 const SizedBox(height: 8),
-                const Text('Review the populated fields after applying. OCR can be wrong, especially when screenshots are compressed or labels are unusual.'),
+                const Text('Review populated fields before saving. OCR and vision scores are evidence-based estimates, not facts pulled from Amazon.'),
               ],
             ),
           ),
@@ -119,25 +178,38 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
 
   Future<void> _importRouteScreenshots() async {
     if (_analyzing) return;
-    final picked = await _picker.pickMultiImage(imageQuality: 94, limit: 12);
+    final picked = await _picker.pickMultiImage(imageQuality: 90, limit: 12);
     if (picked.isEmpty || !mounted) return;
 
     setState(() => _analyzing = true);
     try {
       final analysis = await _screenshotAnalysis.analyze(picked.map((item) => item.path).toList());
+      RouteVisionAnalysis? vision;
+      if (_vision.isConfigured) {
+        try {
+          final ocrText = analysis.items.map((item) => item.rawText).where((text) => text.trim().isNotEmpty).join('\n\n--- screenshot ---\n\n');
+          final preferred = analysis.items
+              .where((item) => item.kind == RouteScreenshotKind.routeMap)
+              .map((item) => item.filePath)
+              .toList();
+          final paths = preferred.isNotEmpty ? preferred : picked.map((item) => item.path).toList();
+          vision = await _vision.analyze(imagePaths: paths.take(6).toList(), ocrText: ocrText);
+        } catch (_) {
+          vision = null;
+        }
+      }
       if (!mounted) return;
-      final apply = await _reviewAnalysis(analysis);
+      final apply = await _reviewAnalysis(analysis, vision);
       if (!apply || !mounted) return;
       setState(() {
         _importedScreenshots = picked;
         _analysisResult = analysis;
-        _applyAnalysis(analysis);
+        _visionResult = vision;
+        _applyAnalysis(analysis, vision);
       });
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not analyze screenshots: $error')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not analyze screenshots: $error')));
     } finally {
       if (mounted) setState(() => _analyzing = false);
     }
@@ -147,16 +219,16 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
     if (_importedScreenshots.isEmpty) return;
     final analysis = _analysisResult;
     final now = DateTime.now();
-
     for (var index = 0; index < _importedScreenshots.length; index++) {
       final picked = _importedScreenshots[index];
       final item = analysis != null && index < analysis.items.length ? analysis.items[index] : null;
       final kind = item?.kind.label ?? 'Route screenshot';
+      final visionSuffix = _visionResult == null || index != 0 ? '' : ' • Vision spread ${_visionResult!.routeSpread}/5';
       final draft = RouteEvidence(
         filePath: picked.path,
         timestamp: now.add(Duration(milliseconds: index)),
         type: EvidenceType.routeDocumentation,
-        caption: 'Imported $kind${item?.routeCode == null ? '' : ' • Route ${item!.routeCode}'}',
+        caption: 'Imported $kind${item?.routeCode == null ? '' : ' • Route ${item!.routeCode}'}$visionSuffix',
       );
       final storedPath = await _evidenceStorage.persistImage(
         sourcePath: picked.path,
@@ -198,9 +270,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
       await widget.repository.createRoute(route);
       await _saveImportedScreenshots(route);
       if (!mounted) return;
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => LiveRouteScreen(route: route, repository: widget.repository)),
-      );
+      await Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => LiveRouteScreen(route: route, repository: widget.repository)));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -231,7 +301,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
                   children: [
                     Text('Set up today’s route', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 8),
-                    Text('Import your route screenshots or enter what you know at loadout. This does not start the delivery clock.', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                    Text('Import route screenshots or enter what you know at loadout. This does not start the delivery clock.', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 18),
                     Card(
                       color: theme.colorScheme.secondaryContainer,
@@ -240,21 +310,19 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Row(
-                              children: [
-                                Icon(Icons.document_scanner_outlined, color: theme.colorScheme.onSecondaryContainer),
-                                const SizedBox(width: 10),
-                                Expanded(child: Text('Import route screenshots', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
-                              ],
-                            ),
+                            Row(children: [
+                              Icon(Icons.document_scanner_outlined, color: theme.colorScheme.onSecondaryContainer),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text('Import route screenshots', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
+                            ]),
                             const SizedBox(height: 6),
-                            const Text('Select your pick sheet, itinerary, route map, and other loadout screenshots together. Text is analyzed on-device and detected route counts can fill the setup form.'),
+                            Text(_vision.isConfigured
+                                ? 'On-device OCR extracts route counts. Secure vision analyzes map geometry without exposing the provider API key to the app.'
+                                : 'On-device OCR extracts route counts. Secure map vision is not configured in this build.'),
                             const SizedBox(height: 12),
                             FilledButton.icon(
                               onPressed: _analyzing ? null : _importRouteScreenshots,
-                              icon: _analyzing
-                                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Icon(Icons.collections_outlined),
+                              icon: _analyzing ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.collections_outlined),
                               label: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 child: Text(_analyzing ? 'Analyzing screenshots…' : 'Select Multiple Screenshots'),
@@ -262,7 +330,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
                             ),
                             if (_importedScreenshots.isNotEmpty) ...[
                               const SizedBox(height: 10),
-                              Text('${_importedScreenshots.length} screenshot${_importedScreenshots.length == 1 ? '' : 's'} attached to this route.', textAlign: TextAlign.center),
+                              Text('${_importedScreenshots.length} screenshot${_importedScreenshots.length == 1 ? '' : 's'} attached${_visionResult == null ? '' : ' • secure vision complete'}.', textAlign: TextAlign.center),
                             ],
                           ],
                         ),
@@ -289,7 +357,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
                     DropdownButtonFormField<String>(
                       initialValue: _routeType,
                       decoration: const InputDecoration(labelText: 'Route type'),
-                      items: const ['Residential','Mixed','Rural','Downtown / Urban','Apartment-heavy','Business-heavy','Custom']
+                      items: const ['Residential', 'Mixed', 'Rural', 'Downtown / Urban', 'Apartment-heavy', 'Business-heavy', 'Custom']
                           .map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
                       onChanged: (value) => setState(() => _routeType = value ?? 'Mixed'),
                     ),
@@ -299,7 +367,7 @@ class _StartRouteScreenState extends State<StartRouteScreen> {
                         ListTile(
                           leading: const Icon(Icons.query_stats_outlined),
                           title: const Text('Route difficulty inputs'),
-                          subtitle: const Text('Optional. Add what you know for a transparent difficulty score.'),
+                          subtitle: Text(_visionResult == null ? 'Optional. Add what you know for a transparent difficulty score.' : 'Map-derived values were prefilled. Review before saving.'),
                           trailing: Icon(_showDifficulty ? Icons.expand_less : Icons.expand_more),
                           onTap: () => setState(() => _showDifficulty = !_showDifficulty),
                         ),
