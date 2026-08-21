@@ -1,6 +1,6 @@
 name: route_performance_tracker
 publish_to: 'none'
-description: Local-first MVP for delivery route performance tracking.
+description: Delivery route tracking, forecasting, evidence, and performance analytics for drivers.
 version: 0.6.0+7
 
 environment:
