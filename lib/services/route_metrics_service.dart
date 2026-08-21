@@ -58,23 +58,52 @@ class RouteMetricsService {
     return last.difference(first);
   }
 
+  double? _rollingRecentPace(DeliveryRoute route) {
+    if (route.checkpoints.length < 2) return null;
+
+    // Use up to the last three checkpoints so one weird stop or short segment
+    // cannot completely hijack the projected finish time.
+    final latestIndex = route.checkpoints.length - 1;
+    final startIndex = (latestIndex - 2).clamp(0, latestIndex).toInt();
+    final first = route.checkpoints[startIndex];
+    final latest = route.checkpoints[latestIndex];
+    final stops = latest.stopNumber - first.stopNumber;
+    if (stops <= 0) return null;
+
+    final elapsedMinutes = latest.timestamp.difference(first.timestamp).inMinutes;
+    final inWindowDelay = route.events
+        .where((event) => event.timestamp.isAfter(first.timestamp) && !event.timestamp.isAfter(latest.timestamp))
+        .fold<int>(0, (sum, event) => sum + event.delayMinutes);
+    final activeMinutes = elapsedMinutes - inWindowDelay;
+    if (activeMinutes <= 0) return null;
+
+    return stops / (activeMinutes / 60);
+  }
+
   RouteForecast? forecast(DeliveryRoute route) {
     if (route.checkpoints.length < 2 || route.stopsRemaining <= 0) return null;
 
-    final cumulative = cumulativePace(route);
-    final recent = latestSegmentPace(route);
-    if (cumulative == null || recent == null || cumulative <= 0 || recent <= 0) return null;
+    final cumulative = adjustedPace(route);
+    final rollingRecent = _rollingRecentPace(route);
+    if (cumulative == null || rollingRecent == null || cumulative <= 0 || rollingRecent <= 0) return null;
+
+    // Real-route backtests showed that an unusually slow or fast short segment
+    // can move the old forecast by hours. Keep recent pace useful, but bounded
+    // relative to the much more stable cumulative pace.
+    final recentFloor = cumulative * 0.70;
+    final recentCeiling = cumulative * 1.30;
+    final recent = rollingRecent.clamp(recentFloor, recentCeiling).toDouble();
 
     final history = route.historicalAdjustedPace;
     final double pace;
     final String method;
 
     if (history != null && history > 0) {
-      pace = (0.5 * cumulative) + (0.3 * recent) + (0.2 * history);
-      method = '50% cumulative + 30% recent + 20% 30-day history';
+      pace = (0.7 * cumulative) + (0.1 * recent) + (0.2 * history);
+      method = '70% adjusted cumulative + 10% smoothed recent + 20% 30-day history';
     } else {
-      pace = (0.6 * cumulative) + (0.4 * recent);
-      method = '60% cumulative + 40% recent';
+      pace = (0.875 * cumulative) + (0.125 * recent);
+      method = '87.5% adjusted cumulative + 12.5% smoothed recent';
     }
 
     final remainingMinutes = (route.stopsRemaining / pace * 60).round();
