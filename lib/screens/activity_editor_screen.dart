@@ -160,7 +160,7 @@ class _ActivityEditorScreenState extends State<ActivityEditorScreen> {
       type: type,
       timestamp: current.timestamp,
       stopNumber: stop,
-      delayMinutes: delay.clamp(0, 1440),
+      delayMinutes: delay.clamp(0, 1440).toInt(),
       notes: notesController.text.trim(),
     );
     await _save();
