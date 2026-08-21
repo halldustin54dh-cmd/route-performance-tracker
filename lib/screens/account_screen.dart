@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/account_service.dart';
+import '../services/cloud_backup_service.dart';
+import '../services/route_repository.dart';
 import 'paywall_screen.dart';
 
 class AccountScreen extends StatefulWidget {
-  const AccountScreen({super.key});
+  const AccountScreen({super.key, required this.repository});
+
+  final RouteRepository repository;
 
   @override
   State<AccountScreen> createState() => _AccountScreenState();
@@ -14,6 +18,7 @@ class _AccountScreenState extends State<AccountScreen> {
   final _password = TextEditingController();
   bool _busy = false;
   bool _create = false;
+  bool _backingUp = false;
 
   AccountService get _accounts => AccountService.instance;
 
@@ -52,6 +57,24 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  Future<void> _backupRoutes() async {
+    if (_backingUp) return;
+    setState(() => _backingUp = true);
+    try {
+      final routes = await widget.repository.completedRoutes();
+      final count = await const CloudBackupService().backupCompletedRoutes(routes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(count == 0 ? 'No completed routes to back up.' : 'Backed up $count completed route${count == 1 ? '' : 's'} securely.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      if (mounted) setState(() => _backingUp = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -83,7 +106,19 @@ class _AccountScreenState extends State<AccountScreen> {
             label: const Text('Route Performance Tracker Pro'),
           ),
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: () async { await _accounts.signOut(); if (mounted) setState(() {}); }, child: const Text('Sign Out')),
+          OutlinedButton.icon(
+            onPressed: _backingUp ? null : _backupRoutes,
+            icon: const Icon(Icons.cloud_upload_outlined),
+            label: Text(_backingUp ? 'Backing up…' : 'Back Up Completed Routes'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () async {
+              await _accounts.signOut();
+              if (mounted) setState(() {});
+            },
+            child: const Text('Sign Out'),
+          ),
         ] else ...[
           Text(_create ? 'Create an account' : 'Sign in', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
@@ -102,7 +137,7 @@ class _AccountScreenState extends State<AccountScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Why create an account?', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              const Text('Cloud backup, multi-device sync, subscription restore, and Pro features will attach to your account. Local route tracking remains available offline.'),
+              const Text('Cloud backup, multi-device sync, subscription restore, and Pro features attach to your account. Local route tracking remains available offline.'),
             ]),
           ),
         ),
