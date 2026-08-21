@@ -11,6 +11,8 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      ROUTE_VISION_CLIENT_TOKEN: ${{ secrets.ROUTE_VISION_CLIENT_TOKEN }}
 
     steps:
       - name: Check out repository
@@ -73,13 +75,28 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Verify private beta vision secret
+        shell: bash
+        run: |
+          if [ -z "$ROUTE_VISION_CLIENT_TOKEN" ]; then
+            echo "ROUTE_VISION_CLIENT_TOKEN repository secret is not configured."
+            exit 1
+          fi
+          if [ "${#ROUTE_VISION_CLIENT_TOKEN}" -lt 32 ]; then
+            echo "ROUTE_VISION_CLIENT_TOKEN is too short."
+            exit 1
+          fi
+          echo "Vision client token is configured."
 
-      - name: Upload debug APK
+      - name: Build vision-enabled debug APK
+        run: >-
+          flutter build apk --debug
+          --dart-define=ROUTE_VISION_CLIENT_TOKEN="$ROUTE_VISION_CLIENT_TOKEN"
+
+      - name: Upload vision-enabled APK
         uses: actions/upload-artifact@v4
         with:
-          name: route-performance-tracker-debug-apk
+          name: route-performance-tracker-vision-beta-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
