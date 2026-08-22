@@ -36,28 +36,23 @@ class _AccountScreenState extends State<AccountScreen> {
     setState(() => _busy = true);
     try {
       if (_create) {
-        await _accounts.signUp(email: _email.text, password: _password.text);
+        final response = await _accounts.signUp(email: _email.text, password: _password.text);
+        if (!mounted) return;
+        if (response.session == null) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account created. Check your email to confirm it, then sign in.')));
+          setState(() => _create = false);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account created and signed in.')));
+          setState(() {});
+        }
       } else {
         await _accounts.signIn(email: _email.text, password: _password.text);
+        if (mounted) setState(() {});
       }
-      if (mounted) setState(() {});
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Account request failed. Check your connection and try again.\n$error')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account request failed. Check your email/password and connection, then try again.')));
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _magicLink() async {
-    if (_email.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter your email first.')));
-      return;
-    }
-    try {
-      await _accounts.sendMagicLink(_email.text);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign-in link sent. Check your email.')));
-    } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send a sign-in link. Check your connection and try again.')));
     }
   }
 
@@ -123,7 +118,7 @@ class _AccountScreenState extends State<AccountScreen> {
         ] else ...[
           Text(_create ? 'Create an account' : 'Sign in', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text(_create ? 'Create one account for AI usage, backup, sync, and purchases.' : 'Sign in to use AI analysis, cloud features, and purchases across devices.'),
+          Text(_create ? 'Create one account for AI usage, cloud features, and purchases.' : 'Sign in to use AI analysis, cloud features, and purchases across devices.'),
           const SizedBox(height: 12),
           TextField(controller: _email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], decoration: const InputDecoration(labelText: 'Email')),
           const SizedBox(height: 12),
@@ -131,7 +126,6 @@ class _AccountScreenState extends State<AccountScreen> {
           const SizedBox(height: 14),
           FilledButton(onPressed: _busy ? null : _submit, child: Text(_busy ? 'Please wait…' : (_create ? 'Create Account' : 'Sign In'))),
           TextButton(onPressed: _busy ? null : () => setState(() => _create = !_create), child: Text(_create ? 'Already have an account? Sign in' : 'Need an account? Create one')),
-          TextButton(onPressed: _busy ? null : _magicLink, child: const Text('Email me a sign-in link')),
         ],
         const SizedBox(height: 24),
         Card(
@@ -140,7 +134,7 @@ class _AccountScreenState extends State<AccountScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Free stays useful', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              const Text('Core route tracking, checkpoints, delays, local history, evidence photos, basic forecasting, and basic stats remain free. Signed-in Free accounts include 3 AI analyses per month. Pro adds expanded AI automation, advanced analytics, cloud features, and expanded reports.'),
+              const Text('Core route tracking, checkpoints, delays, local history, evidence photos, basic forecasting, and basic stats remain free. Signed-in Free accounts include 3 AI analyses per month. Pro adds expanded AI automation, advanced analytics, and cloud features.'),
             ]),
           ),
         ),
