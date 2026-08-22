@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
+import 'services/account_service.dart';
 import 'services/route_repository.dart';
+import 'services/subscription_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RouteRepository.instance.init();
+  await AccountService.instance.initialize();
+  await SubscriptionService.instance.initialize();
   runApp(const RoutePerformanceTrackerApp());
 }
 

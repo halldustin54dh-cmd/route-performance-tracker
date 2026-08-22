@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/delivery_route.dart';
 import '../services/route_metrics_service.dart';
 import '../services/route_repository.dart';
+import 'account_screen.dart';
 import 'history_detail_screen.dart';
 import 'live_route_screen.dart';
 import 'start_route_screen.dart';
@@ -82,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _todayTab(context),
             _historyTab(context),
             AnalyticsScreen(routes: _history),
+            AccountScreen(repository: widget.repository),
           ],
         ),
       ),
@@ -92,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(icon: Icon(Icons.route_outlined), selectedIcon: Icon(Icons.route), label: 'Today'),
           NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'History'),
           NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Analytics'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Account'),
         ],
       ),
     );
