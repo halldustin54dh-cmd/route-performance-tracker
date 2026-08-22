@@ -63,12 +63,12 @@ function clientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
-function allowRequest(ip, limit) {
+function allowRequest(key, limit) {
   const now = Date.now();
   const windowMs = 60_000;
-  const current = buckets.get(ip);
+  const current = buckets.get(key);
   if (!current || now - current.startedAt >= windowMs) {
-    buckets.set(ip, { startedAt: now, count: 1 });
+    buckets.set(key, { startedAt: now, count: 1 });
     return true;
   }
   if (current.count >= limit) return false;
@@ -89,6 +89,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
+  let supabase;
+  let user;
+  let quota;
   try {
     const openaiKey = requiredEnv('OPENAI_API_KEY');
     const clientToken = requiredEnv('ROUTE_VISION_CLIENT_TOKEN');
@@ -102,9 +105,9 @@ export default async function handler(req, res) {
     const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     if (!accessToken) return res.status(401).json({ error: 'account_required' });
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-    const user = userData?.user;
+    user = userData?.user;
     if (userError || !user) return res.status(401).json({ error: 'account_unauthorized' });
 
     const limit = Math.max(1, Number(process.env.RATE_LIMIT_PER_MINUTE || 12));
@@ -120,15 +123,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'invalid_images' });
     }
 
-    const { data: quota, error: quotaError } = await supabase.rpc('consume_ai_analysis', { p_user_id: user.id });
-    if (quotaError) throw quotaError;
+    const quotaResult = await supabase.rpc('consume_ai_analysis', { p_user_id: user.id });
+    if (quotaResult.error) throw quotaResult.error;
+    quota = quotaResult.data;
     if (!quota?.allowed) {
-      return res.status(402).json({
-        error: 'free_ai_limit_reached',
-        tier: 'free',
-        used: Number(quota?.used || 3),
-        limit: 3,
-      });
+      return res.status(402).json({ error: 'free_ai_limit_reached', tier: 'free', used: Number(quota?.used || 3), limit: 3 });
     }
 
     const content = [{ type: 'input_text', text: buildPrompt(ocrText) }];
@@ -144,8 +143,9 @@ export default async function handler(req, res) {
       store: false,
     });
 
+    const normalized = normalize(extractJson(response.output_text));
     return res.status(200).json({
-      ...normalize(extractJson(response.output_text)),
+      ...normalized,
       usage: {
         tier: quota.tier || 'free',
         used: Number(quota.used || 0),
@@ -153,6 +153,13 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
+    if (supabase && user?.id && quota?.tier === 'free' && quota?.allowed) {
+      try {
+        await supabase.rpc('refund_ai_analysis', { p_user_id: user.id });
+      } catch (_) {
+        console.error('route-vision quota refund failed');
+      }
+    }
     console.error('route-vision failure', { name: error?.name, status: error?.status, requestId: error?.request_id });
     return res.status(503).json({ error: 'vision_not_configured_or_unavailable' });
   }
