@@ -5,8 +5,9 @@ import '../services/route_repository.dart';
 import 'paywall_screen.dart';
 
 class AccountScreen extends StatefulWidget {
-  const AccountScreen({super.key, required this.repository});
+  const AccountScreen({super.key, required this.repository, this.onRoutesChanged});
   final RouteRepository repository;
+  final Future<void> Function()? onRoutesChanged;
 
   @override
   State<AccountScreen> createState() => _AccountScreenState();
@@ -49,7 +50,7 @@ class _AccountScreenState extends State<AccountScreen> {
         await _accounts.signIn(email: _email.text, password: _password.text);
         if (mounted) setState(() {});
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account request failed. Check your email/password and connection, then try again.')));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -77,6 +78,7 @@ class _AccountScreenState extends State<AccountScreen> {
     try {
       final rows = await const CloudBackupService().loadCloudRoutes();
       final count = await widget.repository.restoreCloudRoutes(rows);
+      if (widget.onRoutesChanged != null) await widget.onRoutesChanged!();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(count == 0 ? 'This device already has all available cloud routes.' : 'Restored $count route${count == 1 ? '' : 's'} to this device.')));
     } catch (error) {
