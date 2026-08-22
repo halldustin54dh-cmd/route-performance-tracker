@@ -1,120 +1,65 @@
 # Route Performance Tracker
 
-Flutter MVP for delivery drivers who want a personal record of route pace, checkpoints, delays, finish-time forecasts, route difficulty, evidence, and historical performance.
+Route Performance Tracker is a local-first Flutter app for delivery drivers who want a personal record of route pace, checkpoints, delays, finish-time forecasts, route difficulty, evidence, and historical performance.
 
 ## Current version
 
-**MVP 0.3**
+**1.0.0 release candidate**
 
-The app is local-first. Route data is stored on-device with SQLite and does not require an account or cloud connection for the core workflow.
+Core route tracking is stored on-device with SQLite and remains usable without an account or cloud connection. Accounts are used for AI usage, cloud features, and subscription restoration.
 
-## Current features
+## Core features
 
-- Save route setup before delivery begins
-- Separate **Record First Stop Now** action so loadout and drive time do not contaminate delivery pace
-- Add lightweight checkpoints using only the current stop number; time is captured automatically
-- Raw pace, adjusted pace, latest-segment pace, stops remaining, and progress
-- Finish-time forecasting after checkpoint 2
-- Automatic 30-day adjusted-pace baseline from completed local routes
-- Forecast confidence that increases as checkpoints accumulate
-- Route events with documented delay minutes and notes
-- Photo/screenshot evidence from camera or gallery
-- Evidence copied into app-controlled local storage
-- Standardized evidence filenames
-- Evidence categories for route documentation, incidents, vehicle/safety, and other
-- Transparent route difficulty model with workload, complexity/travel, and context components
-- Completed route History
-- Analytics for 7 days, 30 days, and all time
-- Common-event analysis
-- SQLite v2 migration for existing MVP 0.2 databases
+- Route setup without starting the delivery clock
+- Fast stop checkpoints with automatic timestamps
+- Raw and adjusted pace, segment pace, progress, and stops remaining
+- Finish-time forecasting using today's route and personal historical pace
+- Route events/delays with notes
+- Photo/screenshot evidence stored locally
+- Multi-screenshot import with on-device OCR
+- Secure AI-assisted route-map analysis
+- Transparent route difficulty model
+- Completed-route History
+- Basic Free analytics and advanced Pro analytics
+- Supabase accounts and Pro-gated cloud route backup/restore
+- Google Play subscription architecture with server-side verification
+- Server-enforced Free AI quota: 3 successful analyses/month for signed-in Free accounts
 
-## Forecast model
+## Free and Pro
 
-Without history:
+Free keeps the core tracker useful: local routes, checkpoints, events, evidence, basic forecasts/stats, 7-day basic analytics, and 3 AI analyses per month for signed-in users.
 
-`60% cumulative pace + 40% latest segment pace`
+Pro adds expanded/fair-use AI analysis, advanced historical analytics, cloud backup/restore, and expanded reporting features.
 
-When a 30-day personal baseline exists:
+Target US pricing is **$6.99/month** or **$66.99/year**. Google Play is the source of truth for localized price and billing terms.
 
-`50% cumulative pace + 30% latest segment pace + 20% 30-day adjusted pace`
+## Important 1.0 boundaries
 
-The app intentionally compares the driver primarily against their own historical performance rather than assuming one universal delivery pace fits every route.
-
-## Route difficulty
-
-The score is intentionally transparent. It separates:
-
-- **Workload:** stop count, packages/stop, locations/stop
-- **Complexity and travel:** apartment, business, rural, multi-location share, average drive time, route spread
-- **Context:** weather, access difficulty, documented delay
-
-When there is not enough information, the app returns **Not enough data** rather than inventing a low difficulty score.
-
-## Project structure
-
-```text
-lib/
-  main.dart
-  models/
-    checkpoint.dart
-    delivery_route.dart
-    route_event.dart
-    route_evidence.dart
-  services/
-    evidence_storage_service.dart
-    route_difficulty_service.dart
-    route_metrics_service.dart
-    route_repository.dart
-  screens/
-    analytics_screen.dart
-    history_detail_screen.dart
-    home_screen.dart
-    live_route_screen.dart
-    start_route_screen.dart
-  widgets/
-    metric_tile.dart
-
-test/
-  route_difficulty_service_test.dart
-  route_metrics_service_test.dart
-```
+- Original evidence image files are local-only and are not included in cloud route backup/restore.
+- AI, cloud, account, and subscription actions require connectivity.
+- AI-extracted values and forecasts are estimates and require user review.
+- Android/Google Play is the first release target; iOS billing is not enabled in the Android-first release.
 
 ## Local development
 
 Target toolchain: **Flutter 3.47.1 / Dart 3.13.1**.
 
 ```bash
-flutter create . --platforms=android,ios --org com.routeperformancetracker
+flutter create . --platforms=android --org com.routeperformancetracker
 flutter pub get
 flutter analyze
 flutter test
 flutter run
 ```
 
-The repository intentionally keeps generated native platform folders out of the initial source snapshot. `flutter create .` generates them from the installed Flutter SDK.
+Generated native platform folders are intentionally not committed. CI generates the Android runner before testing/building.
 
-## Automated build
+## Automated builds
 
-GitHub Actions runs on pushes and pull requests to `main` and performs:
+GitHub Actions validates backend syntax/tests, Flutter analysis/tests, and builds a vision-enabled debug APK. A manual release job can build a signed Android App Bundle after the Android upload keystore secrets are configured.
 
-1. Flutter setup
-2. Android SDK/API 36 setup
-3. Platform bootstrap
-4. `flutter pub get`
-5. `flutter analyze`
-6. `flutter test`
-7. `flutter build apk --debug`
-8. Upload of the debug APK as a workflow artifact
-
-## Next development phase
-
-- Edit/correct checkpoints and events
-- Better evidence management and evidence detail views
-- Route report generation and PDF export
-- Cloud accounts/sync
-- Subscription entitlements
-- Release signing and store deployment
+Release/test/policy material is in `docs/`.
 
 ## Independence
 
-Route Performance Tracker is an independent project. It is not affiliated with or endorsed by Amazon or any delivery service provider.
+Route Performance Tracker is an independent project. It is not affiliated with or endorsed by Amazon, any DSP, delivery company, or employer.
