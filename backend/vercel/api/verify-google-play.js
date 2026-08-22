@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { GoogleAuth } from 'google-auth-library';
+import { isEntitledSubscription } from '../../src/subscription_state.js';
 
 const allowedProducts = new Set(['route_tracker_pro_monthly', 'route_tracker_pro_yearly']);
 
@@ -12,19 +13,6 @@ function requiredEnv(name) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing ${name}`);
   return value;
-}
-
-function hasFutureExpiry(item, nowMs = Date.now()) {
-  if (!item?.expiryTime) return false;
-  const expiry = Date.parse(item.expiryTime);
-  return Number.isFinite(expiry) && expiry > nowMs;
-}
-
-export function isEntitledSubscription(state, item, nowMs = Date.now()) {
-  if (!item) return false;
-  return state === 'SUBSCRIPTION_STATE_ACTIVE' ||
-    state === 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD' ||
-    (state === 'SUBSCRIPTION_STATE_CANCELED' && hasFutureExpiry(item, nowMs));
 }
 
 async function markInactive(supabase, userId, productId, providerStatus) {
