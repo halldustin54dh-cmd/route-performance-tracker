@@ -1,7 +1,7 @@
 name: route_performance_tracker
 publish_to: 'none'
 description: Delivery route tracking, forecasting, evidence, and performance analytics for drivers.
-version: 0.6.0+7
+version: 1.0.0+8
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
