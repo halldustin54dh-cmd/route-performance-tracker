@@ -42,27 +42,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openSetup() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => StartRouteScreen(repository: widget.repository)),
-    );
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => StartRouteScreen(repository: widget.repository)));
     await _reload();
   }
 
   Future<void> _resume() async {
     final route = _active;
     if (route == null) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => LiveRouteScreen(route: route, repository: widget.repository)),
-    );
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => LiveRouteScreen(route: route, repository: widget.repository)));
     await _reload();
   }
 
   String _date(DateTime value) => '${value.month}/${value.day}/${value.year}';
-  String _pace(double? value) => value == null ? '—' : '${value.toStringAsFixed(1)}/hr';
+  String _pace(double value) => '${value.toStringAsFixed(1)}/hr';
 
   String _duration(DeliveryRoute route) {
     final value = _metrics.routeDuration(route);
-    if (value == null) return '—';
+    if (value == null) return 'Duration unavailable';
     final hours = value.inMinutes ~/ 60;
     final minutes = value.inMinutes % 60;
     return '${hours}h ${minutes}m';
@@ -70,9 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Route Performance Tracker')),
@@ -83,13 +77,16 @@ class _HomeScreenState extends State<HomeScreen> {
             _todayTab(context),
             _historyTab(context),
             AnalyticsScreen(routes: _history),
-            AccountScreen(repository: widget.repository),
+            AccountScreen(repository: widget.repository, onRoutesChanged: _reload),
           ],
         ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (value) => setState(() => _tab = value),
+        onDestinationSelected: (value) {
+          setState(() => _tab = value);
+          if (value == 1 || value == 2) _reload();
+        },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.route_outlined), selectedIcon: Icon(Icons.route), label: 'Today'),
           NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'History'),
@@ -117,18 +114,15 @@ class _HomeScreenState extends State<HomeScreen> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(Icons.add_road_outlined, size: 42),
-                  const SizedBox(height: 12),
-                  Text('Ready for a route?', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
-                  const SizedBox(height: 6),
-                  const Text('Enter the route counts now. Start the delivery clock later at the actual first stop.', textAlign: TextAlign.center),
-                  const SizedBox(height: 18),
-                  FilledButton.icon(onPressed: _openSetup, icon: const Icon(Icons.add), label: const Text('Set Up Route')),
-                ],
-              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const Icon(Icons.add_road_outlined, size: 42),
+                const SizedBox(height: 12),
+                Text('Ready for a route?', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+                const SizedBox(height: 6),
+                const Text('Enter the route counts now. Start the delivery clock later at the actual first stop.', textAlign: TextAlign.center),
+                const SizedBox(height: 18),
+                FilledButton.icon(onPressed: _openSetup, icon: const Icon(Icons.add), label: const Text('Set Up Route')),
+              ]),
             ),
           )
         else
@@ -136,25 +130,22 @@ class _HomeScreenState extends State<HomeScreen> {
             color: const Color(0xFF172033),
             child: Padding(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(route.hasStarted ? 'Route in progress' : 'Route ready', style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Text('${route.startingStops} stops • ${route.routeType}', style: const TextStyle(color: Colors.white70)),
-                  if (route.hasStarted) ...[
-                    const SizedBox(height: 4),
-                    Text('Stop ${route.currentStop} • ${route.stopsRemaining} remaining', style: const TextStyle(color: Colors.white70)),
-                  ],
-                  const SizedBox(height: 18),
-                  FilledButton.icon(
-                    onPressed: _resume,
-                    style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF172033)),
-                    icon: Icon(route.hasStarted ? Icons.play_arrow_rounded : Icons.flag_outlined),
-                    label: Text(route.hasStarted ? 'Resume Route' : 'Open Route'),
-                  ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(route.hasStarted ? 'Route in progress' : 'Route ready', style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Text('${route.startingStops} stops • ${route.routeType}', style: const TextStyle(color: Colors.white70)),
+                if (route.hasStarted) ...[
+                  const SizedBox(height: 4),
+                  Text('Stop ${route.currentStop} • ${route.stopsRemaining} remaining', style: const TextStyle(color: Colors.white70)),
                 ],
-              ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: _resume,
+                  style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF172033)),
+                  icon: Icon(route.hasStarted ? Icons.play_arrow_rounded : Icons.flag_outlined),
+                  label: Text(route.hasStarted ? 'Resume Route' : 'Open Route'),
+                ),
+              ]),
             ),
           ),
         const SizedBox(height: 24),
@@ -176,10 +167,10 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Text('Route History', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text('${_history.length} completed routes stored locally', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text('${_history.length} completed route${_history.length == 1 ? '' : 's'} stored locally', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           const SizedBox(height: 20),
           if (_history.isEmpty)
-            const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Completed routes will appear here.')))
+            const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Complete your first route and it will appear here.')))
           else
             ..._history.map(_historyCard),
         ],
@@ -189,20 +180,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _historyCard(DeliveryRoute route) {
     final adjusted = _metrics.adjustedPace(route);
+    final parts = <String>[route.routeType, _duration(route)];
+    if (adjusted != null) parts.add('${_pace(adjusted)} adjusted');
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: const CircleAvatar(child: Icon(Icons.check_rounded)),
         title: Text('${_date(route.date)} • ${route.startingStops} stops'),
-        subtitle: Text('${route.routeType} • ${_duration(route)} • ${_pace(adjusted)} adjusted'),
+        subtitle: Text(parts.join(' • ')),
         trailing: const Icon(Icons.chevron_right),
         onTap: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => HistoryDetailScreen(route: route, repository: widget.repository),
-            ),
-          );
+          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => HistoryDetailScreen(route: route, repository: widget.repository)));
           await _reload();
         },
       ),

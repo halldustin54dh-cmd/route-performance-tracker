@@ -148,6 +148,75 @@ class RouteRepository {
     });
   }
 
+  Future<int> restoreCloudRoutes(List<Map<String, dynamic>> cloudRows) async {
+    var restored = 0;
+    for (final cloudRow in cloudRows) {
+      final rawPayload = cloudRow['payload'];
+      if (rawPayload is! Map) continue;
+      final payload = Map<String, dynamic>.from(rawPayload);
+      if ((payload['schema_version'] as num?)?.toInt() != 1) continue;
+
+      final dateText = payload['date'] as String?;
+      final firstStopText = payload['first_stop_time'] as String?;
+      final startingStops = (payload['starting_stops'] as num?)?.toInt();
+      final startingPackages = (payload['starting_packages'] as num?)?.toInt() ?? 0;
+      if (dateText == null || startingStops == null || startingStops <= 0) continue;
+
+      final existing = await db.query(
+        'routes',
+        where: 'date = ? AND starting_stops = ? AND starting_packages = ? AND COALESCE(first_stop_time, "") = ?',
+        whereArgs: [DateTime.parse(dateText).toLocal().toIso8601String(), startingStops, startingPackages, firstStopText == null ? '' : DateTime.parse(firstStopText).toLocal().toIso8601String()],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) continue;
+
+      final route = DeliveryRoute(
+        date: DateTime.parse(dateText).toLocal(),
+        startingStops: startingStops,
+        startingLocations: (payload['starting_locations'] as num?)?.toInt() ?? 0,
+        startingPackages: startingPackages,
+        firstStopTime: firstStopText == null ? null : DateTime.parse(firstStopText).toLocal(),
+        finalStopTime: payload['final_stop_time'] == null ? null : DateTime.parse(payload['final_stop_time'] as String).toLocal(),
+        routeType: payload['route_type'] as String? ?? 'Mixed',
+        historicalAdjustedPace: (payload['historical_adjusted_pace'] as num?)?.toDouble(),
+        apartmentStops: (payload['apartment_stops'] as num?)?.toInt() ?? 0,
+        businessStops: (payload['business_stops'] as num?)?.toInt() ?? 0,
+        ruralStops: (payload['rural_stops'] as num?)?.toInt() ?? 0,
+        multiLocationStops: (payload['multi_location_stops'] as num?)?.toInt() ?? 0,
+        averageDriveMinutes: (payload['average_drive_minutes'] as num?)?.toDouble() ?? 0,
+        weatherSeverity: (payload['weather_severity'] as num?)?.toInt() ?? 0,
+        accessDifficulty: (payload['access_difficulty'] as num?)?.toInt() ?? 0,
+        routeSpread: (payload['route_spread'] as num?)?.toInt() ?? 0,
+        checkpoints: ((payload['checkpoints'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .where((item) => item['stop_number'] is num && item['timestamp'] is String)
+            .map((item) => Checkpoint(
+                  stopNumber: (item['stop_number'] as num).toInt(),
+                  timestamp: DateTime.parse(item['timestamp'] as String).toLocal(),
+                ))
+            .toList(),
+        events: ((payload['events'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .where((item) => item['type'] is String && item['timestamp'] is String)
+            .map((item) => RouteEvent(
+                  type: RouteEventType.fromName(item['type'] as String),
+                  timestamp: DateTime.parse(item['timestamp'] as String).toLocal(),
+                  stopNumber: (item['stop_number'] as num?)?.toInt(),
+                  delayMinutes: (item['delay_minutes'] as num?)?.toInt() ?? 0,
+                  notes: item['notes'] as String? ?? '',
+                ))
+            .toList(),
+      );
+
+      await createRoute(route);
+      await saveRoute(route);
+      restored += 1;
+    }
+    return restored;
+  }
+
   Future<DeliveryRoute?> activeRoute() async {
     final rows = await db.query('routes', where: 'final_stop_time IS NULL', orderBy: 'date DESC, id DESC', limit: 1);
     if (rows.isEmpty) return null;
