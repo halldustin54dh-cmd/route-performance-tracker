@@ -18,6 +18,7 @@ returns table(period_start date, analyses_used integer)
 language sql
 security invoker
 stable
+set search_path = public
 as $$
   select u.period_start, u.analyses_used
   from public.ai_usage_monthly u
