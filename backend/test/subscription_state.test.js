@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isEntitledSubscription } from '../vercel/api/verify-google-play.js';
+import { isEntitledSubscription } from '../src/subscription_state.js';
 
 const now = Date.parse('2026-08-22T00:00:00Z');
 const futureItem = { expiryTime: '2026-09-22T00:00:00Z' };
