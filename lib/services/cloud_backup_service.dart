@@ -1,17 +1,25 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/delivery_route.dart';
 import 'account_service.dart';
+import 'entitlement_service.dart';
 
 class CloudBackupService {
   const CloudBackupService();
 
-  Future<int> backupCompletedRoutes(List<DeliveryRoute> routes) async {
+  Future<void> _requirePro() async {
     final accounts = AccountService.instance;
-    final user = accounts.currentUser;
-    if (!accounts.isInitialized || user == null) {
-      throw StateError('Sign in before backing up routes.');
+    if (!accounts.isInitialized || accounts.currentUser == null) {
+      throw StateError('Sign in to use cloud backup and restore.');
     }
+    final entitlement = await const EntitlementService().current();
+    if (!entitlement.isPro) {
+      throw StateError('Cloud backup and restore are Pro features.');
+    }
+  }
 
+  Future<int> backupCompletedRoutes(List<DeliveryRoute> routes) async {
+    await _requirePro();
+    final user = AccountService.instance.currentUser!;
     final completed = routes.where((route) => route.isComplete).toList(growable: false);
     if (completed.isEmpty) return 0;
 
@@ -29,6 +37,15 @@ class CloudBackupService {
     return completed.length;
   }
 
+  Future<List<Map<String, dynamic>>> loadCloudRoutes() async {
+    await _requirePro();
+    final rows = await Supabase.instance.client
+        .from('routes')
+        .select('id,route_date,payload,updated_at')
+        .order('route_date', ascending: true);
+    return rows.map<Map<String, dynamic>>((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
   String _cloudId(String userId, DeliveryRoute route) {
     final first = route.firstStopTime?.toUtc().toIso8601String() ?? 'not-started';
     final raw = '$userId|${route.date.toUtc().toIso8601String()}|$first|${route.startingStops}|${route.startingPackages}';
@@ -37,7 +54,6 @@ class CloudBackupService {
 
   Map<String, Object?> _payload(DeliveryRoute route) => {
         'schema_version': 1,
-        'local_id': route.id,
         'date': route.date.toUtc().toIso8601String(),
         'starting_stops': route.startingStops,
         'starting_locations': route.startingLocations,
@@ -55,10 +71,7 @@ class CloudBackupService {
         'access_difficulty': route.accessDifficulty,
         'route_spread': route.routeSpread,
         'checkpoints': route.checkpoints
-            .map((checkpoint) => {
-                  'stop_number': checkpoint.stopNumber,
-                  'timestamp': checkpoint.timestamp.toUtc().toIso8601String(),
-                })
+            .map((checkpoint) => {'stop_number': checkpoint.stopNumber, 'timestamp': checkpoint.timestamp.toUtc().toIso8601String()})
             .toList(growable: false),
         'events': route.events
             .map((event) => {
