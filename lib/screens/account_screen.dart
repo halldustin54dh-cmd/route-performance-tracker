@@ -17,7 +17,7 @@ class _AccountScreenState extends State<AccountScreen> {
   final _password = TextEditingController();
   bool _busy = false;
   bool _create = false;
-  bool _backingUp = false;
+  bool _cloudBusy = false;
   AccountService get _accounts => AccountService.instance;
 
   @override
@@ -42,7 +42,7 @@ class _AccountScreenState extends State<AccountScreen> {
       }
       if (mounted) setState(() {});
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Account request failed. Check your connection and try again.\n$error')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -57,13 +57,13 @@ class _AccountScreenState extends State<AccountScreen> {
       await _accounts.sendMagicLink(_email.text);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign-in link sent. Check your email.')));
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send a sign-in link. Check your connection and try again.')));
     }
   }
 
   Future<void> _backupRoutes() async {
-    if (_backingUp) return;
-    setState(() => _backingUp = true);
+    if (_cloudBusy) return;
+    setState(() => _cloudBusy = true);
     try {
       final routes = await widget.repository.completedRoutes();
       final count = await const CloudBackupService().backupCompletedRoutes(routes);
@@ -72,7 +72,22 @@ class _AccountScreenState extends State<AccountScreen> {
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
     } finally {
-      if (mounted) setState(() => _backingUp = false);
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
+  Future<void> _restoreRoutes() async {
+    if (_cloudBusy) return;
+    setState(() => _cloudBusy = true);
+    try {
+      final rows = await const CloudBackupService().loadCloudRoutes();
+      final count = await widget.repository.restoreCloudRoutes(rows);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(count == 0 ? 'This device already has all available cloud routes.' : 'Restored $count route${count == 1 ? '' : 's'} to this device.')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
     }
   }
 
@@ -98,13 +113,17 @@ class _AccountScreenState extends State<AccountScreen> {
             label: const Text('Compare Free and Pro'),
           ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(onPressed: _backingUp ? null : _backupRoutes, icon: const Icon(Icons.cloud_upload_outlined), label: Text(_backingUp ? 'Backing up…' : 'Back Up Completed Routes')),
+          OutlinedButton.icon(onPressed: _cloudBusy ? null : _backupRoutes, icon: const Icon(Icons.cloud_upload_outlined), label: Text(_cloudBusy ? 'Working…' : 'Back Up Completed Routes')),
           const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: _cloudBusy ? null : _restoreRoutes, icon: const Icon(Icons.cloud_download_outlined), label: Text(_cloudBusy ? 'Working…' : 'Restore Routes From Cloud')),
+          const SizedBox(height: 6),
+          Text('Cloud backup/restore requires Pro. Route records, checkpoints, and events sync; original evidence image files are not uploaded in this release.', style: theme.textTheme.bodySmall),
+          const SizedBox(height: 12),
           OutlinedButton(onPressed: () async { await _accounts.signOut(); if (mounted) setState(() {}); }, child: const Text('Sign Out')),
         ] else ...[
           Text(_create ? 'Create an account' : 'Sign in', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text(_create ? 'Create one account for backup, sync, and purchases.' : 'Sign in to access backup, sync, and purchases across devices.'),
+          Text(_create ? 'Create one account for AI usage, backup, sync, and purchases.' : 'Sign in to use AI analysis, cloud features, and purchases across devices.'),
           const SizedBox(height: 12),
           TextField(controller: _email, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], decoration: const InputDecoration(labelText: 'Email')),
           const SizedBox(height: 12),
@@ -121,7 +140,7 @@ class _AccountScreenState extends State<AccountScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Free stays useful', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              const Text('Core route tracking, checkpoints, delays, local history, evidence photos, basic forecasting, and basic stats remain free. Pro adds heavier AI automation, advanced analytics, cloud features, and expanded reports.'),
+              const Text('Core route tracking, checkpoints, delays, local history, evidence photos, basic forecasting, and basic stats remain free. Signed-in Free accounts include 3 AI analyses per month. Pro adds expanded AI automation, advanced analytics, cloud features, and expanded reports.'),
             ]),
           ),
         ),
