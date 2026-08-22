@@ -1,13 +1,18 @@
 export default function handler(_req, res) {
-  const visionConfigured = Boolean(
+  const visionProviderConfigured = Boolean(
     process.env.OPENAI_API_KEY &&
     process.env.ROUTE_VISION_CLIENT_TOKEN &&
     process.env.ROUTE_VISION_CLIENT_TOKEN.length >= 32
   );
 
-  const subscriptionsConfigured = Boolean(
+  const accountBackendConfigured = Boolean(
     process.env.SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  const visionConfigured = visionProviderConfigured && accountBackendConfigured;
+  const subscriptionsConfigured = Boolean(
+    accountBackendConfigured &&
     process.env.ANDROID_PACKAGE_NAME &&
     process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
   );
@@ -17,6 +22,7 @@ export default function handler(_req, res) {
     ok: true,
     service: 'route-performance-tracker-backend',
     visionConfigured,
+    aiUsageConfigured: accountBackendConfigured,
     subscriptionsConfigured,
   });
 }
