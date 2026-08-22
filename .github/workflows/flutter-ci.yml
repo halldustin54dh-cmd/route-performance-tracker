@@ -64,6 +64,9 @@ jobs:
       - name: Generate Android runner
         run: flutter create . --platforms=android --org com.routeperformancetracker
 
+      - name: Configure permanent Android identity
+        run: python3 tool/configure_android_identity.py
+
       - name: Remove generated template test
         run: rm -f test/widget_test.dart
 
@@ -150,6 +153,9 @@ jobs:
 
       - name: Generate Android runner
         run: flutter create . --platforms=android --org com.routeperformancetracker
+
+      - name: Configure permanent Android identity
+        run: python3 tool/configure_android_identity.py
 
       - name: Decode upload keystore
         shell: bash
