@@ -14,10 +14,17 @@ function requiredEnv(name) {
   return value;
 }
 
-function hasFutureExpiry(item) {
+function hasFutureExpiry(item, nowMs = Date.now()) {
   if (!item?.expiryTime) return false;
   const expiry = Date.parse(item.expiryTime);
-  return Number.isFinite(expiry) && expiry > Date.now();
+  return Number.isFinite(expiry) && expiry > nowMs;
+}
+
+export function isEntitledSubscription(state, item, nowMs = Date.now()) {
+  if (!item) return false;
+  return state === 'SUBSCRIPTION_STATE_ACTIVE' ||
+    state === 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD' ||
+    (state === 'SUBSCRIPTION_STATE_CANCELED' && hasFutureExpiry(item, nowMs));
 }
 
 async function markInactive(supabase, userId, productId, providerStatus) {
@@ -77,13 +84,8 @@ export default async function handler(req, res) {
     const lineItems = Array.isArray(purchase.lineItems) ? purchase.lineItems : [];
     const matched = lineItems.find((item) => item.productId === productId);
     const state = purchase.subscriptionState;
-    const entitled = Boolean(matched) && (
-      state === 'SUBSCRIPTION_STATE_ACTIVE' ||
-      state === 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD' ||
-      (state === 'SUBSCRIPTION_STATE_CANCELED' && hasFutureExpiry(matched))
-    );
 
-    if (!entitled) {
+    if (!isEntitledSubscription(state, matched)) {
       await markInactive(supabase, user.id, productId, state || 'inactive');
       return res.status(400).json({ error: 'subscription_inactive', state: state || 'unknown' });
     }
@@ -92,10 +94,7 @@ export default async function handler(req, res) {
       const ackUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(packageName)}/purchases/subscriptions/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:acknowledge`;
       const ackResponse = await fetch(ackUrl, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${access.token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${access.token}`, 'Content-Type': 'application/json' },
         body: '{}',
       });
       if (!ackResponse.ok) {
