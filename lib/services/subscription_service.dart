@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'account_service.dart';
 import 'purchase_verification_service.dart';
 
 class SubscriptionService {
@@ -30,9 +31,7 @@ class SubscriptionService {
           _messageController.add(purchase.error?.message ?? 'Store purchase failed.');
           continue;
         }
-        if (purchase.status != PurchaseStatus.purchased && purchase.status != PurchaseStatus.restored) {
-          continue;
-        }
+        if (purchase.status != PurchaseStatus.purchased && purchase.status != PurchaseStatus.restored) continue;
 
         try {
           if (Platform.isAndroid) {
@@ -40,9 +39,7 @@ class SubscriptionService {
           } else {
             throw StateError('App Store verification will be enabled with the iOS release target.');
           }
-          if (purchase.pendingCompletePurchase) {
-            await _iap.completePurchase(purchase);
-          }
+          if (purchase.pendingCompletePurchase) await _iap.completePurchase(purchase);
           _messageController.add('Route Performance Tracker Pro is active.');
         } catch (error) {
           _messageController.add('$error');
@@ -54,15 +51,31 @@ class SubscriptionService {
   Future<List<ProductDetails>> loadProducts() async {
     if (!await _iap.isAvailable()) return const [];
     final response = await _iap.queryProductDetails(productIds);
-    return response.productDetails;
+    final products = response.productDetails.toList();
+    products.sort((a, b) {
+      if (a.id == monthlyId) return -1;
+      if (b.id == monthlyId) return 1;
+      return a.rawPrice.compareTo(b.rawPrice);
+    });
+    return products;
+  }
+
+  void _requireAccount() {
+    if (AccountService.instance.currentUser == null) {
+      throw StateError('Sign in before purchasing or restoring Pro so the subscription can be attached to your account.');
+    }
   }
 
   Future<void> buy(ProductDetails product) async {
+    _requireAccount();
     final param = PurchaseParam(productDetails: product);
     await _iap.buyNonConsumable(purchaseParam: param);
   }
 
-  Future<void> restore() => _iap.restorePurchases();
+  Future<void> restore() async {
+    _requireAccount();
+    await _iap.restorePurchases();
+  }
 
   Future<void> dispose() async {
     await _subscription?.cancel();
