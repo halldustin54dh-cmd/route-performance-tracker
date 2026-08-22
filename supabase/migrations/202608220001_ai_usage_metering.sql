@@ -69,5 +69,22 @@ begin
 end;
 $$;
 
+create or replace function public.refund_ai_analysis(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_period date := date_trunc('month', now())::date;
+begin
+  update public.ai_usage_monthly
+  set analyses_used = greatest(0, analyses_used - 1), updated_at = now()
+  where user_id = p_user_id and period_start = v_period;
+end;
+$$;
+
 revoke all on function public.consume_ai_analysis(uuid) from public, anon, authenticated;
 grant execute on function public.consume_ai_analysis(uuid) to service_role;
+revoke all on function public.refund_ai_analysis(uuid) from public, anon, authenticated;
+grant execute on function public.refund_ai_analysis(uuid) to service_role;
