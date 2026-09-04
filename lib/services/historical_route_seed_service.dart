@@ -130,6 +130,29 @@ class HistoricalRouteSeedService {
             ),
           ],
         ),
+        DeliveryRoute(
+          date: DateTime(2026, 8, 27),
+          startingStops: 195,
+          startingLocations: 260,
+          startingPackages: 325,
+          multiLocationStops: 47,
+          firstStopTime: _at(27, 10, 25),
+          finalStopTime: _at(27, 17, 36),
+          routeType: 'Mixed',
+          checkpoints: [
+            _cp(27, 1, 10, 25),
+            _cp(27, 28, 11, 25),
+            _cp(27, 51, 12, 25),
+            _cp(27, 80, 13, 24),
+            _cp(27, 100, 14, 25),
+            _cp(27, 123, 15, 25),
+            _cp(27, 157, 16, 25),
+            _cp(27, 186, 17, 24),
+            // Stops 40-42 were consolidated during the route, so the final
+            // numbered stop was 193 even though the route began with 195 stops.
+            _cp(27, 193, 17, 36),
+          ],
+        ),
       ];
 
   static List<DeliveryRoute> missingRoutes(List<DeliveryRoute> existing) {
