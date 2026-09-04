@@ -50,6 +50,7 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          echo "$ANDROID_HOME/build-tools/36.0.0" >> "$GITHUB_PATH"
 
       - name: Set up Flutter 3.47.1
         uses: subosito/flutter-action@v2
@@ -64,7 +65,7 @@ jobs:
       - name: Generate Android runner
         run: flutter create . --platforms=android --org com.routeperformancetracker
 
-      - name: Install stable CI debug signing key
+      - name: Install CI debug signing key
         shell: bash
         run: |
           mkdir -p "$HOME/.android"
@@ -78,7 +79,6 @@ jobs:
             -validity 10000 \
             -dname "CN=Route Performance Tracker CI,O=Route Performance Tracker,C=US" \
             -noprompt
-          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep -E 'SHA1:|SHA256:'
 
       - name: Remove generated template test
         run: rm -f test/widget_test.dart
