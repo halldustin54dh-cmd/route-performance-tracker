@@ -102,6 +102,29 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Give historical build a separate Android identity
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          gradle = Path('android/app/build.gradle.kts')
+          text = gradle.read_text()
+          old = 'applicationId = "com.routeperformancetracker.route_performance_tracker"'
+          new = 'applicationId = "com.routeperformancetracker.route_performance_tracker.historical"'
+          if old not in text:
+              raise SystemExit('Expected applicationId not found')
+          gradle.write_text(text.replace(old, new, 1))
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          old = 'android:label="route_performance_tracker"'
+          new = 'android:label="Route Performance Tracker Historical"'
+          if old not in text:
+              raise SystemExit('Expected Android app label not found')
+          manifest.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Build historical-route seeded debug APK
         run: >-
           flutter build apk --debug
@@ -111,7 +134,7 @@ jobs:
       - name: Upload historical-route seeded APK
         uses: actions/upload-artifact@v4
         with:
-          name: route-performance-tracker-historical-routes-apk
+          name: route-performance-tracker-historical-standalone-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
