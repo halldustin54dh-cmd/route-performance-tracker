@@ -1,0 +1,21 @@
+name: Difficulty Verification
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+      - run: flutter create . --platforms=android --org com.routeperformancetracker
+      - run: rm -f test/widget_test.dart
+      - run: flutter pub get
+      - run: flutter test test/route_difficulty_service_test.dart test/historical_route_seed_service_test.dart
