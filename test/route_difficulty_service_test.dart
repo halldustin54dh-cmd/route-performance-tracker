@@ -15,6 +15,20 @@ void main() {
     expect(service.calculate(route), isNull);
   });
 
+  test('scores a route with complete workload data and one verified context input', () {
+    final route = DeliveryRoute(
+      date: DateTime(2026, 8, 27),
+      startingStops: 195,
+      startingLocations: 260,
+      startingPackages: 325,
+      multiLocationStops: 47,
+    );
+    final result = service.calculate(route);
+    expect(result, isNotNull);
+    expect(result!.score, greaterThan(0));
+    expect(result.dataCompleteness, greaterThan(0));
+  });
+
   test('scores a contextualized route', () {
     final route = DeliveryRoute(
       date: DateTime(2026, 8, 20),

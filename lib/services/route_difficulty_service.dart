@@ -35,7 +35,7 @@ class RouteDifficultyService {
       route.routeSpread,
     ];
     final suppliedContext = optionalValues.where((value) => value > 0).length;
-    if (suppliedContext < 2) return null;
+    if (suppliedContext < 1) return null;
 
     final locationsPerStop = route.startingLocations / route.startingStops;
     final packagesPerStop = route.startingPackages / route.startingStops;
