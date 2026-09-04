@@ -101,3 +101,17 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Build historical-route seeded debug APK
+        run: >-
+          flutter build apk --debug
+          --dart-define=ROUTE_VISION_CLIENT_TOKEN="$ROUTE_VISION_CLIENT_TOKEN"
+          --dart-define=SEED_HISTORICAL_ROUTES=true
+
+      - name: Upload historical-route seeded APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: route-performance-tracker-historical-routes-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
