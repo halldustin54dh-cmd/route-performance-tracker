@@ -32,11 +32,11 @@ void main() {
         expect(route.finalStopTime, isNotNull);
         expect(route.checkpoints, isNotEmpty);
         expect(route.checkpoints.first.stopNumber, 1);
-        expect(route.checkpoints.last.stopNumber, route.startingStops);
+        expect(route.checkpoints.last.stopNumber, lessThanOrEqualTo(route.startingStops));
       }
     });
 
-    test('Aug 27 seed preserves documented workload and produces difficulty', () {
+    test('Aug 27 seed preserves documented workload and consolidated stop history', () {
       const difficulty = RouteDifficultyService();
       final route = HistoricalRouteSeedService.missingRoutes(const [])
           .singleWhere((route) => route.date == DateTime(2026, 8, 27));
@@ -45,6 +45,8 @@ void main() {
       expect(route.startingLocations, 260);
       expect(route.startingPackages, 325);
       expect(route.multiLocationStops, 47);
+      expect(route.checkpoints.last.stopNumber, 193);
+      expect(route.finalStopTime, DateTime(2026, 8, 27, 17, 36));
       expect(difficulty.calculate(route), isNotNull);
     });
   });
